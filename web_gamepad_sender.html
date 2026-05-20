@@ -302,7 +302,7 @@
       const gamepad = gamepads[0];
       selectedIndex = gamepad.index;
       setStatus(`Selected ${gamepad.id} at browser index ${gamepad.index}.`);
-      render(gamepad.axes, gamepad.buttons.map((button) => button.pressed ? 1 : 0));
+      render(normalizeAxes(gamepad.axes), gamepad.buttons.map((button) => button.pressed ? 1 : 0));
       return gamepad;
     }
 
@@ -319,6 +319,14 @@
       return Math.abs(value) < deadzone ? 0 : value;
     }
 
+    function normalizeAxes(axes) {
+      return Array.from(axes, (value, index) => {
+        // ROS Joy convention expects left-stick forward on axis 1 to be positive.
+        const rosValue = index === 1 ? -value : value;
+        return applyDeadzone(rosValue);
+      });
+    }
+
     function buildPayload(gamepad) {
       return {
         version: 1,
@@ -326,7 +334,7 @@
         sequence,
         timestamp: Date.now() / 1000,
         name: gamepad.id,
-        axes: Array.from(gamepad.axes, applyDeadzone),
+        axes: normalizeAxes(gamepad.axes),
         buttons: gamepad.buttons.map((button) => button.pressed ? 1 : 0),
       };
     }

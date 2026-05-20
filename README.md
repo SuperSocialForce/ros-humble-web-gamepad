@@ -11,6 +11,10 @@ API and sends the state to the ROS container over HTTP:
   topic.
 - `teleop_twist_joy` subscribes to `/joy` and publishes `/cmd_vel`.
 
+The browser sender normalizes the left stick vertical axis to the ROS Joy
+convention: pushing the left stick up sends `axes[1] > 0`, matching the default
+`teleop_twist_joy` configs.
+
 ## Build
 
 ```bash
