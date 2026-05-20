@@ -266,10 +266,20 @@
     const axesNode = document.getElementById("axes");
     const buttonsNode = document.getElementById("buttons");
 
+    function defaultReceiverUrl() {
+      if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+        return `${window.location.origin}/joy`;
+      }
+
+      return "http://127.0.0.1:8000/joy";
+    }
+
     let timer = null;
     let sequence = 0;
     let selectedIndex = null;
     let requestInFlight = false;
+
+    urlInput.value = defaultReceiverUrl();
 
     function setStatus(message) {
       statusNode.textContent = message;

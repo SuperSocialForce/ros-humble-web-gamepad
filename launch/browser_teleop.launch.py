@@ -11,6 +11,7 @@ def generate_launch_description():
     joy_topic = LaunchConfiguration("joy_topic")
     cmd_vel_topic = LaunchConfiguration("cmd_vel_topic")
     config_filepath = LaunchConfiguration("config_filepath")
+    static_file = LaunchConfiguration("static_file")
 
     default_config_filepath = PathJoinSubstitution(
         [
@@ -47,6 +48,11 @@ def generate_launch_description():
                 default_value=default_config_filepath,
                 description="teleop_twist_joy YAML config path.",
             ),
+            DeclareLaunchArgument(
+                "static_file",
+                default_value="/usr/local/share/humble_teleop/web_gamepad_sender.html",
+                description="Browser Gamepad sender HTML path served by the HTTP bridge.",
+            ),
             ExecuteProcess(
                 cmd=[
                     "python3",
@@ -57,6 +63,8 @@ def generate_launch_description():
                     http_port,
                     "--topic",
                     joy_topic,
+                    "--static-file",
+                    static_file,
                 ],
                 name="http_joy_receiver",
                 output="screen",

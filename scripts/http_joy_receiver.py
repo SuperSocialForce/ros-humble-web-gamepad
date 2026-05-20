@@ -5,10 +5,15 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import urlsplit
 
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
+
+
+DEFAULT_STATIC_FILE = "/usr/local/share/humble_teleop/web_gamepad_sender.html"
 
 
 class JoyRequestHandler(BaseHTTPRequestHandler):
@@ -20,14 +25,25 @@ class JoyRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        if self.path != "/health":
-            self.send_json(404, {"ok": False, "error": "not found"})
+        self.handle_get_or_head(send_body=True)
+
+    def do_HEAD(self):
+        self.handle_get_or_head(send_body=False)
+
+    def handle_get_or_head(self, send_body):
+        path = urlsplit(self.path).path
+        if path == "/health":
+            self.send_json(200, {"ok": True}, send_body=send_body)
             return
 
-        self.send_json(200, {"ok": True})
+        if path in ("/", "/web_gamepad_sender.html"):
+            self.send_static_html(send_body=send_body)
+            return
+
+        self.send_json(404, {"ok": False, "error": "not found"}, send_body=send_body)
 
     def do_POST(self):
-        if self.path != "/joy":
+        if urlsplit(self.path).path != "/joy":
             self.send_json(404, {"ok": False, "error": "not found"})
             return
 
@@ -57,14 +73,31 @@ class JoyRequestHandler(BaseHTTPRequestHandler):
         self.server.receiver_node.update_joy_state(axes, buttons)
         self.send_json(200, {"ok": True})
 
-    def send_json(self, status, payload):
+    def send_static_html(self, send_body=True):
+        try:
+            body = Path(self.server.receiver_node.static_file).read_bytes()
+        except OSError:
+            self.send_json(404, {"ok": False, "error": "static file not found"}, send_body=send_body)
+            return
+
+        self.send_response(200)
+        self.send_cors_headers()
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        if send_body:
+            self.wfile.write(body)
+
+    def send_json(self, status, payload, send_body=True):
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         self.send_response(status)
         self.send_cors_headers()
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        if send_body:
+            self.wfile.write(body)
 
     def send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -81,6 +114,7 @@ class HttpJoyReceiver(Node):
         self.frame_id = args.frame_id
         self.stale_timeout = args.stale_timeout
         self.max_body_bytes = args.max_body_bytes
+        self.static_file = args.static_file
         self.lock = threading.Lock()
         self.latest_axes = None
         self.latest_buttons = None
@@ -97,7 +131,7 @@ class HttpJoyReceiver(Node):
 
         self.get_logger().info(
             f"listening for HTTP Joy packets on http://{args.bind_address}:{args.port}/joy, "
-            f"publishing {args.topic}"
+            f"serving browser sender on /, publishing {args.topic}"
         )
 
     def destroy_node(self):
@@ -152,6 +186,7 @@ def parse_args(argv):
     parser.add_argument("--publish-rate", type=float, default=50.0)
     parser.add_argument("--stale-timeout", type=float, default=0.5)
     parser.add_argument("--max-body-bytes", type=int, default=65536)
+    parser.add_argument("--static-file", default=DEFAULT_STATIC_FILE)
     return parser.parse_known_args(argv)
 
 

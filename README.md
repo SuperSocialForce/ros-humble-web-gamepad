@@ -4,7 +4,7 @@ Docker Desktop for Mac does not expose macOS game controllers as `/dev/input/js0
 inside Linux containers. If a browser gamepad tester can see the controller,
 use the browser bridge:
 
-- Mac browser: `web_gamepad_sender.html` reads the controller through the Gamepad API.
+- Mac browser: the page served by the ROS container reads the controller through the Gamepad API.
 - ROS container: `scripts/http_joy_receiver.py` publishes `sensor_msgs/Joy` on `/joy`.
 - `teleop_twist_joy` subscribes to `/joy` and publishes `/cmd_vel`.
 
@@ -38,15 +38,8 @@ docker exec -it humble-teleop-joy bash -lc \
 
 ## Start The Browser Sender
 
-On the Mac host, serve this directory over localhost:
-
-```bash
-python3 -m http.server 9000
-```
-
-Open `http://127.0.0.1:9000/web_gamepad_sender.html` in the same browser that
-can see the controller, press a controller button, click `Scan`, then click
-`Start`.
+Open `http://127.0.0.1:8000/` in the same browser that can see the controller,
+press a controller button, click `Scan`, then click `Start`.
 
 ## Inspect Teleop Output
 
