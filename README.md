@@ -1,20 +1,23 @@
-# ROS Humble Teleop On Mac With Browser Joy Bridge
+# ROS Humble Teleop With Browser Joy Bridge
 
-Docker Desktop for Mac does not expose macOS game controllers as `/dev/input/js0`
-inside Linux containers. If a browser gamepad tester can see the controller,
-use the browser bridge:
+This project avoids passing a physical gamepad device into the ROS container.
+Instead, a browser on the host machine reads the controller through the Gamepad
+API and sends the state to the ROS container over HTTP:
 
-- Mac browser: the page served by the ROS container reads the controller through the Gamepad API.
-- ROS container: `scripts/http_joy_receiver.py` publishes `sensor_msgs/Joy` on `/joy`.
+- Host browser: the page served by the ROS container reads the controller through
+  the Gamepad API.
+- ROS container: `scripts/http_joy_receiver.py` serves the browser page, receives
+  browser POSTs on `/joy`, and publishes `sensor_msgs/Joy` on the ROS `/joy`
+  topic.
 - `teleop_twist_joy` subscribes to `/joy` and publishes `/cmd_vel`.
 
-## Build The Image
+## Build
 
 ```bash
 docker build -t ros:humble-teleop .
 ```
 
-## Start The ROS Container
+## Run
 
 ```bash
 docker run --rm -it \
@@ -23,25 +26,37 @@ docker run --rm -it \
   ros:humble-teleop
 ```
 
-Inside the container:
+Inside the container, launch the HTTP Joy bridge and `teleop_twist_joy`:
 
 ```bash
 ros2 launch /usr/local/share/humble_teleop/browser_teleop.launch.py
 ```
 
-In another terminal, verify `/joy`:
+The launch starts one HTTP server on port `8000`:
+
+- `GET /` serves the browser gamepad sender.
+- `GET /health` returns a health check.
+- `POST /joy` receives browser gamepad state.
+
+## Open The Browser Sender
+
+Open `http://127.0.0.1:8000/` in the same browser that can see the controller,
+press a controller button, click `Scan`, then click `Start`.
+
+## Verify
+
+Check that the HTTP bridge is reachable from the host machine:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+In another terminal, verify incoming Joy messages:
 
 ```bash
 docker exec -it humble-teleop-joy bash -lc \
   'source /opt/ros/humble/setup.bash && ros2 topic echo /joy'
 ```
-
-## Start The Browser Sender
-
-Open `http://127.0.0.1:8000/` in the same browser that can see the controller,
-press a controller button, click `Scan`, then click `Start`.
-
-## Inspect Teleop Output
 
 Inspect generated velocity commands:
 
@@ -57,29 +72,4 @@ axis and button numbers, then pass a matching params file to the launch file:
 ```bash
 ros2 launch /usr/local/share/humble_teleop/browser_teleop.launch.py \
   config_filepath:=/path/to/your.config.yaml
-```
-
-## Optional Pygame UDP Sender
-
-If pygame can see your controller, this older path also works:
-
-```bash
-docker run --rm -it \
-  --name humble-teleop-joy \
-  -p 5005:5005/udp \
-  ros:humble-teleop
-```
-
-Inside the container:
-
-```bash
-python3 /usr/local/bin/udp_joy_receiver.py
-```
-
-On the Mac host:
-
-```bash
-python3 -m pip install pygame
-python3 scripts/mac_joy_sender.py --list
-python3 scripts/mac_joy_sender.py --host 127.0.0.1 --port 5005
 ```
