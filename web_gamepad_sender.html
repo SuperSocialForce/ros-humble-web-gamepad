@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gamepad to ROS Joy</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7f9;
+      color: #19212a;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+    }
+
+    main {
+      width: min(760px, calc(100vw - 32px));
+      padding: 28px;
+      box-sizing: border-box;
+      background: #ffffff;
+      border: 1px solid #d9e0e7;
+      border-radius: 8px;
+      box-shadow: 0 16px 40px rgb(23 31 41 / 10%);
+    }
+
+    h1 {
+      margin: 0 0 20px;
+      font-size: 24px;
+      font-weight: 650;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 140px 120px;
+      gap: 12px;
+      align-items: end;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #405163;
+    }
+
+    input,
+    select,
+    button {
+      height: 40px;
+      box-sizing: border-box;
+      border: 1px solid #c9d3dd;
+      border-radius: 6px;
+      font: inherit;
+      background: #ffffff;
+      color: #19212a;
+    }
+
+    input,
+    select {
+      padding: 0 10px;
+      width: 100%;
+    }
+
+    button {
+      padding: 0 14px;
+      font-weight: 650;
+      cursor: pointer;
+      background: #1f6feb;
+      color: #ffffff;
+      border-color: #1f6feb;
+    }
+
+    button.secondary {
+      background: #ffffff;
+      color: #233142;
+      border-color: #c9d3dd;
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: 0.55;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .status {
+      margin-top: 18px;
+      padding: 12px;
+      border-radius: 6px;
+      background: #eef3f8;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .meters {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .panel {
+      min-height: 120px;
+      border: 1px solid #d9e0e7;
+      border-radius: 8px;
+      padding: 12px;
+      box-sizing: border-box;
+    }
+
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+
+    .axis {
+      display: grid;
+      grid-template-columns: 32px 1fr 54px;
+      gap: 8px;
+      align-items: center;
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      margin: 6px 0;
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #d4505d 0 50%, #2da44e 50% 100%);
+      transform-origin: left;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .button-state {
+      min-width: 30px;
+      padding: 5px 7px;
+      border-radius: 6px;
+      border: 1px solid #c9d3dd;
+      text-align: center;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      box-sizing: border-box;
+    }
+
+    .button-state.on {
+      background: #2da44e;
+      border-color: #2da44e;
+      color: #ffffff;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        place-items: start center;
+      }
+
+      main {
+        margin-top: 16px;
+        padding: 18px;
+      }
+
+      .grid,
+      .meters {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        background: #10161d;
+        color: #edf2f7;
+      }
+
+      main,
+      input,
+      select,
+      button.secondary {
+        background: #171f28;
+        color: #edf2f7;
+      }
+
+      main,
+      input,
+      select,
+      button.secondary,
+      .panel,
+      .button-state {
+        border-color: #354455;
+      }
+
+      label {
+        color: #b8c5d3;
+      }
+
+      .status {
+        background: #202b36;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Gamepad to ROS Joy</h1>
+
+    <div class="grid">
+      <label>
+        Receiver URL
+        <input id="url" value="http://127.0.0.1:8000/joy" autocomplete="off">
+      </label>
+      <label>
+        Rate
+        <select id="rate">
+          <option value="20">20 Hz</option>
+          <option value="50" selected>50 Hz</option>
+          <option value="60">60 Hz</option>
+        </select>
+      </label>
+      <label>
+        Deadzone
+        <input id="deadzone" type="number" min="0" max="1" step="0.01" value="0.05">
+      </label>
+    </div>
+
+    <div class="actions">
+      <button id="start">Start</button>
+      <button id="stop" class="secondary" disabled>Stop</button>
+      <button id="scan" class="secondary">Scan</button>
+    </div>
+
+    <div id="status" class="status">Press any controller button, then click Scan or Start.</div>
+
+    <div class="meters">
+      <section class="panel">
+        <h2>Axes</h2>
+        <div id="axes"></div>
+      </section>
+      <section class="panel">
+        <h2>Buttons</h2>
+        <div id="buttons" class="buttons"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const urlInput = document.getElementById("url");
+    const rateInput = document.getElementById("rate");
+    const deadzoneInput = document.getElementById("deadzone");
+    const startButton = document.getElementById("start");
+    const stopButton = document.getElementById("stop");
+    const scanButton = document.getElementById("scan");
+    const statusNode = document.getElementById("status");
+    const axesNode = document.getElementById("axes");
+    const buttonsNode = document.getElementById("buttons");
+
+    let timer = null;
+    let sequence = 0;
+    let selectedIndex = null;
+    let requestInFlight = false;
+
+    function setStatus(message) {
+      statusNode.textContent = message;
+    }
+
+    function getGamepads() {
+      return Array.from(navigator.getGamepads ? navigator.getGamepads() : [])
+        .filter((gamepad) => gamepad);
+    }
+
+    function scanGamepads() {
+      const gamepads = getGamepads();
+      if (gamepads.length === 0) {
+        selectedIndex = null;
+        setStatus("No browser-visible gamepads. Press a controller button, then scan again.");
+        render([], []);
+        return null;
+      }
+
+      const gamepad = gamepads[0];
+      selectedIndex = gamepad.index;
+      setStatus(`Selected ${gamepad.id} at browser index ${gamepad.index}.`);
+      render(gamepad.axes, gamepad.buttons.map((button) => button.pressed ? 1 : 0));
+      return gamepad;
+    }
+
+    function currentGamepad() {
+      if (selectedIndex === null) {
+        return scanGamepads();
+      }
+
+      return navigator.getGamepads()[selectedIndex] || scanGamepads();
+    }
+
+    function applyDeadzone(value) {
+      const deadzone = Number(deadzoneInput.value);
+      return Math.abs(value) < deadzone ? 0 : value;
+    }
+
+    function buildPayload(gamepad) {
+      return {
+        version: 1,
+        source: "browser-gamepad",
+        sequence,
+        timestamp: Date.now() / 1000,
+        name: gamepad.id,
+        axes: Array.from(gamepad.axes, applyDeadzone),
+        buttons: gamepad.buttons.map((button) => button.pressed ? 1 : 0),
+      };
+    }
+
+    async function sendJoy() {
+      const gamepad = currentGamepad();
+      if (!gamepad || requestInFlight) {
+        return;
+      }
+
+      const payload = buildPayload(gamepad);
+      render(payload.axes, payload.buttons);
+      requestInFlight = true;
+
+      try {
+        const response = await fetch(urlInput.value, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        sequence += 1;
+        setStatus(`Sending ${gamepad.id} to ${urlInput.value}. Sequence ${sequence}.`);
+      } catch (error) {
+        setStatus(`Send failed: ${error.message}`);
+      } finally {
+        requestInFlight = false;
+      }
+    }
+
+    function render(axes, buttons) {
+      axesNode.innerHTML = "";
+      Array.from(axes).forEach((value, index) => {
+        const row = document.createElement("div");
+        row.className = "axis";
+
+        const label = document.createElement("span");
+        label.textContent = index;
+
+        const track = document.createElement("div");
+        track.style.background = "#d9e0e7";
+        track.style.height = "8px";
+        track.style.borderRadius = "999px";
+        track.style.overflow = "hidden";
+
+        const bar = document.createElement("div");
+        bar.className = "bar";
+        bar.style.width = `${50 + value * 50}%`;
+        track.appendChild(bar);
+
+        const number = document.createElement("span");
+        number.textContent = Number(value).toFixed(2);
+
+        row.append(label, track, number);
+        axesNode.appendChild(row);
+      });
+
+      buttonsNode.innerHTML = "";
+      Array.from(buttons).forEach((value, index) => {
+        const node = document.createElement("span");
+        node.className = `button-state${value ? " on" : ""}`;
+        node.textContent = index;
+        buttonsNode.appendChild(node);
+      });
+    }
+
+    function start() {
+      if (timer) {
+        return;
+      }
+
+      scanGamepads();
+      const interval = 1000 / Number(rateInput.value);
+      timer = window.setInterval(sendJoy, interval);
+      sendJoy();
+      startButton.disabled = true;
+      stopButton.disabled = false;
+    }
+
+    function stop() {
+      if (timer) {
+        window.clearInterval(timer);
+        timer = null;
+      }
+
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      setStatus("Stopped.");
+    }
+
+    window.addEventListener("gamepadconnected", (event) => {
+      selectedIndex = event.gamepad.index;
+      setStatus(`Connected ${event.gamepad.id}.`);
+    });
+
+    window.addEventListener("gamepaddisconnected", () => {
+      selectedIndex = null;
+      setStatus("Controller disconnected.");
+      render([], []);
+    });
+
+    scanButton.addEventListener("click", scanGamepads);
+    startButton.addEventListener("click", start);
+    stopButton.addEventListener("click", stop);
+  </script>
+</body>
+</html>
