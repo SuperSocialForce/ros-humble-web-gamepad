@@ -321,8 +321,8 @@
 
     function normalizeAxes(axes) {
       return Array.from(axes, (value, index) => {
-        // ROS Joy convention expects left-stick forward on axis 1 to be positive.
-        const rosValue = index === 1 ? -value : value;
+        // Match ROS Joy left-stick conventions for horizontal and forward axes.
+        const rosValue = index === 0 || index === 1 ? -value : value;
         return applyDeadzone(rosValue);
       });
     }
